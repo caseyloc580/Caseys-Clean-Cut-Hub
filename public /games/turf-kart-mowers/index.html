@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Turf Kart Mowers</title>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;background:radial-gradient(circle at top,#1d4a2b,#061109 72%);color:#f6fff2;margin:0;min-height:100vh;padding:20px}
+.box{max-width:900px;margin:auto;background:#102519;border:1px solid #397447;border-radius:18px;padding:20px}
+button,input{padding:12px;border-radius:12px;border:0;font-weight:900;margin:6px}button{background:linear-gradient(#ffed68,#d9b916);color:#10210d;cursor:pointer}input{width:min(100%,520px)}
+.card{background:rgba(0,0,0,.25);border:1px solid #397447;border-radius:14px;padding:12px;margin-top:12px}a{color:#ffe45c}
+</style>
+</head>
+<body>
+<div class="box">
+<h1>Casey's Clean Cut: Turf Kart Mowers</h1>
+<p>This page is wired to the multi-game hub backend. Use it to test online rooms first, then we can drop the full 3D game client into this same folder.</p>
+
+<div class="card">
+<h2>Online Room</h2>
+<button onclick="createRoom()">Create Room</button>
+<input id="roomCode" placeholder="Room code">
+<button onclick="joinRoom()">Join Room</button>
+<button onclick="startGame()">Start Match</button>
+</div>
+
+<div class="card">
+<h2>Invite Link</h2>
+<input id="invite" readonly placeholder="Create a room first">
+<button onclick="copyInvite()">Copy Invite Link</button>
+</div>
+
+<div class="card">
+<h2>Room Status</h2>
+<pre id="out">Not connected yet.</pre>
+</div>
+
+<p><a href="/">Back to Casey's Game Hub</a></p>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const GAME_ID = "turf-kart-mowers";
+const socket = io();
+let roomCode = null;
+let role = null;
+const out = document.getElementById("out");
+const roomInput = document.getElementById("roomCode");
+const invite = document.getElementById("invite");
+
+function print(obj){ out.textContent = typeof obj === "string" ? obj : JSON.stringify(obj, null, 2); }
+
+function createRoom(){
+  socket.emit("room:create", { gameId: GAME_ID, name: "Player 1" }, (res) => {
+    if(!res.ok) return print(res.error);
+    roomCode = res.code;
+    role = res.role;
+    roomInput.value = roomCode;
+    invite.value = location.origin + location.pathname + "?room=" + roomCode;
+    history.replaceState(null, "", location.pathname + "?room=" + roomCode);
+    print(res);
+  });
+}
+
+function joinRoom(code){
+  code = (code || roomInput.value || "").trim().toUpperCase();
+  if(!code) return print("Enter a room code first.");
+  socket.emit("room:join", { gameId: GAME_ID, code, name: "Player 2" }, (res) => {
+    if(!res.ok) return print(res.error);
+    roomCode = res.code;
+    role = res.role;
+    roomInput.value = roomCode;
+    invite.value = location.origin + location.pathname + "?room=" + roomCode;
+    print(res);
+  });
+}
+
+function startGame(){
+  if(!roomCode) return print("Create or join a room first.");
+  socket.emit("game:start", { seed: Date.now() });
+}
+
+function copyInvite(){
+  if(!invite.value) return;
+  navigator.clipboard.writeText(invite.value);
+  print("Copied invite link: " + invite.value);
+}
+
+socket.on("room:update", room => print(room));
+socket.on("game:start", data => print({ message: "Match start signal received. Full game client can start here.", data }));
+socket.on("peer:disconnected", msg => print(msg));
+
+const queryRoom = new URLSearchParams(location.search).get("room");
+if(queryRoom){
+  roomInput.value = queryRoom.toUpperCase();
+  joinRoom(queryRoom);
+}
+</script>
+</body>
+</html>
