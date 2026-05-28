@@ -1,7 +1,7 @@
 {
-  "name": "caseys-clean-cut-turf-kart-mowers-online",
+  "name": "caseys-clean-cut-multigame-hub",
   "version": "1.0.0",
-  "description": "Casey's Clean Cut: Turf Kart Mowers with hosted Socket.IO signaling/server backend.",
+  "description": "Casey's Clean Cut multi-game hub with online rooms.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
