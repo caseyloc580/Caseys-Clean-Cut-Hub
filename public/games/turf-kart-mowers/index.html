@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>Casey's Clean Cut: Turf Kart Mowers Online First</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;font-family:Arial,Helvetica,sans-serif;background:#061109;color:#f6fff2}
+#menu{position:fixed;inset:0;background:radial-gradient(circle at top,#1d4a2b,#061109 72%);display:flex;align-items:center;justify-content:center;padding:16px}
+.panel{width:min(1000px,96%);background:linear-gradient(#173b25,#07120a);border:1px solid #397447;border-radius:24px;padding:22px;box-shadow:0 20px 70px rgba(0,0,0,.45)}
+h1{font-size:42px;line-height:1;margin:0 0 8px}.yellow{color:#ffe45c}.muted{color:#bdd9bd;line-height:1.45}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+.card{background:rgba(0,0,0,.28);border:1px solid #397447;border-radius:18px;padding:16px}
+button,input{border:0;border-radius:14px;padding:13px 15px;font-weight:900;margin:6px 4px}
+button{cursor:pointer;background:linear-gradient(#ffed68,#d9b916);color:#10210d}
+.btn2{background:linear-gradient(#94ff78,#49cf3d)}.btn3{background:linear-gradient(#9bd1ff,#4199ff)}
+input{width:min(100%,640px);background:#ecffef;color:#10210d}
+pre{white-space:pre-wrap;background:#061109;border:1px solid #397447;border-radius:14px;padding:12px;min-height:120px;max-height:240px;overflow:auto}
+#game{display:none;position:fixed;inset:0;width:100%;height:100%;background:#2f8d39}
+#hud{display:none;position:fixed;top:14px;left:14px;right:14px;z-index:4;pointer-events:none}
+.hudrow{display:grid;grid-template-columns:1fr auto 1fr;gap:10px}
+.hudbox{background:rgba(0,0,0,.62);border:1px solid rgba(255,255,255,.2);border-radius:14px;padding:10px;font-weight:900}.center{text-align:center;color:#ffe45c}.right{text-align:right}
+@media(max-width:800px){h1{font-size:32px}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="menu">
+  <div class="panel">
+    <h1>Casey's Clean Cut:<br><span class="yellow">Turf Kart Mowers Online</span></h1>
+    <p class="muted">This opens the online room menu first, not the local ready-up screen.</p>
+    <div class="grid">
+      <div class="card">
+        <h2>Host Online Match</h2>
+        <p class="muted">Create a room, copy the invite link, and text it to your dad.</p>
+        <button onclick="createRoom()">Create Online Room</button>
+        <button class="btn2" onclick="startOnline()">Start Match</button>
+      </div>
+      <div class="card">
+        <h2>Join Online Match</h2>
+        <p class="muted">Paste a room code or open an invite link.</p>
+        <input id="roomCode" placeholder="Room code">
+        <button onclick="joinRoom()">Join Room</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Invite Link</h2>
+      <input id="invite" readonly placeholder="Create a room first">
+      <button class="btn3" onclick="copyInvite()">Copy Invite Link</button>
+      <button onclick="shareInvite()">Share/Text Invite</button>
+    </div>
+    <div class="card">
+      <h2>Status</h2>
+      <pre id="out">Waiting. Click Create Online Room.</pre>
+    </div>
+    <div class="card">
+      <h2>Local Practice</h2>
+      <button onclick="startLocalPractice()">Start Local Practice Game</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="game"></canvas>
+<div id="hud"><div class="hudrow"><div class="hudbox" id="p1hud">P1</div><div class="hudbox center" id="timer">90</div><div class="hudbox right" id="p2hud">P2</div></div></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const GAME_ID="turf-kart-mowers";
+const socket=typeof io!=="undefined"?io():null;
+const out=document.getElementById("out"), roomInput=document.getElementById("roomCode"), invite=document.getElementById("invite");
+let roomCode=null, role=null, online=false, guestInput={x:0,y:0,use:false}, lastStateSent=0;
+function print(obj){out.textContent=typeof obj==="string"?obj:JSON.stringify(obj,null,2)}
+function roomLink(code){return location.origin+location.pathname+"?room="+code}
+function createRoom(){
+ if(!socket)return print("Socket.IO did not load. Open this through your Render server.");
+ socket.emit("room:create",{gameId:GAME_ID,name:"Player 1"},res=>{
+  if(!res.ok)return print(res.error);
+  roomCode=res.code; role="host"; online=true; roomInput.value=roomCode; invite.value=roomLink(roomCode);
+  history.replaceState(null,"",location.pathname+"?room="+roomCode);
+  print({message:"Room created. Send your dad the invite link.",roomCode,invite:invite.value,next:"Wait for guestConnected true, then press Start Match."});
+ });
+}
+function joinRoom(code){
+ if(!socket)return print("Socket.IO did not load. Open this through your Render server.");
+ code=(code||roomInput.value||"").trim().toUpperCase(); if(!code)return print("Enter a room code first.");
+ socket.emit("room:join",{gameId:GAME_ID,code,name:"Player 2"},res=>{
+  if(!res.ok)return print(res.error);
+  roomCode=res.code; role="guest"; online=true; roomInput.value=roomCode; invite.value=roomLink(roomCode);
+  print({message:"Joined online room. Wait for host to press Start Match.",roomCode,role});
+ });
+}
+function copyInvite(){if(!invite.value)return print("Create a room first.");navigator.clipboard.writeText(invite.value);print("Copied invite link:\n"+invite.value)}
+function shareInvite(){if(!invite.value)return print("Create a room first."); if(navigator.share)navigator.share({title:"Join my Turf Kart Mowers room",text:"Join my game room:",url:invite.value}); else copyInvite();}
+function startOnline(){if(!roomCode)return print("Create a room first."); if(role!=="host")return print("Only the host can start."); socket.emit("game:start",{seed:Date.now()}); startGame(true);}
+function startLocalPractice(){online=false;role="host";startGame(false);}
+if(socket){
+ socket.on("room:update",room=>print({message:room.guestConnected?"Guest is connected. Host can press Start Match.":"Room is open. Waiting for guest.",room}));
+ socket.on("game:start",()=>{if(role==="guest")startGame(true)});
+ socket.on("input:guest",input=>guestInput=input);
+ socket.on("state:host",snap=>{if(role==="guest")applySnapshot(snap)});
+ socket.on("peer:disconnected",msg=>print(msg.message||"Peer disconnected."));
+}
+const queryRoom=new URLSearchParams(location.search).get("room");
+if(queryRoom){roomInput.value=queryRoom.toUpperCase();setTimeout(()=>joinRoom(queryRoom),350);}
+
+const canvas=document.getElementById("game"),ctx=canvas.getContext("2d"),hud=document.getElementById("hud"),menu=document.getElementById("menu");
+const p1hud=document.getElementById("p1hud"),p2hud=document.getElementById("p2hud"),timerEl=document.getElementById("timer");
+let keys={},game=null,running=false;
+function newGame(){
+ const cols=38,rows=25,tiles=[];for(let y=0;y<rows;y++){let row=[];for(let x=0;x<cols;x++)row.push({owner:0});tiles.push(row)}
+ return{w:cols,h:rows,tile:40,time:90,players:[{x:100,y:500,a:0,v:0,score:0,color:"#ef5c52"},{x:1420,y:500,a:Math.PI,v:0,score:0,color:"#62adff"}],tiles};
+}
+function startGame(){game=newGame();running=true;menu.style.display="none";canvas.style.display="block";hud.style.display="block";resize();requestAnimationFrame(loop)}
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight}
+function input(slot){let x=0,y=0,use=false;if(slot===0){x+=(keys.KeyD?1:0)-(keys.KeyA?1:0);y+=(keys.KeyS?1:0)-(keys.KeyW?1:0);use=!!keys.Space}else{x+=(keys.ArrowRight?1:0)-(keys.ArrowLeft?1:0);y+=(keys.ArrowDown?1:0)-(keys.ArrowUp?1:0);use=!!keys.Enter}let l=Math.hypot(x,y);if(l>1){x/=l;y/=l}return{x,y,use}}
+function updatePlayer(p,inp,dt){let moving=Math.abs(inp.x)+Math.abs(inp.y)>.05;if(moving){let target=Math.atan2(inp.y,inp.x),diff=((target-p.a+Math.PI*3)%(Math.PI*2))-Math.PI;p.a+=diff*Math.min(1,dt*7);p.v+=900*dt}else p.v-=600*dt;p.v=Math.max(0,Math.min(340,p.v));p.v*=.985;p.x+=Math.cos(p.a)*p.v*dt;p.y+=Math.sin(p.a)*p.v*dt;p.x=Math.max(30,Math.min(game.w*game.tile-30,p.x));p.y=Math.max(30,Math.min(game.h*game.tile-30,p.y))}
+function mow(p,id){let tx=Math.floor(p.x/game.tile),ty=Math.floor(p.y/game.tile);for(let yy=ty-1;yy<=ty+1;yy++)for(let xx=tx-1;xx<=tx+1;xx++){if(xx<0||yy<0||xx>=game.w||yy>=game.h)continue;let t=game.tiles[yy][xx];if(t.owner!==id){t.owner=id;p.score+=10}}}
+function snapshot(){return{time:game.time,players:game.players,tiles:game.tiles}}
+function applySnapshot(s){if(!game)game=newGame();game.time=s.time;game.players=s.players;game.tiles=s.tiles}
+function update(dt){
+ game.time-=dt;
+ if(online&&role==="guest"){socket.emit("input:guest",input(0));return}
+ updatePlayer(game.players[0],input(0),dt); updatePlayer(game.players[1],online?guestInput:input(1),dt);
+ mow(game.players[0],1);mow(game.players[1],2);
+ if(online&&role==="host"&&performance.now()-lastStateSent>60){lastStateSent=performance.now();socket.emit("state:host",snapshot())}
+ if(game.time<=0){game.time=0;running=false}
+}
+function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath()}
+function draw(){
+ if(!game)return;ctx.clearRect(0,0,canvas.width,canvas.height);let scale=Math.min(canvas.width/(game.w*game.tile),canvas.height/(game.h*game.tile)),ox=(canvas.width-game.w*game.tile*scale)/2,oy=(canvas.height-game.h*game.tile*scale)/2;ctx.save();ctx.translate(ox,oy);ctx.scale(scale,scale);
+ for(let y=0;y<game.h;y++)for(let x=0;x<game.w;x++){let o=game.tiles[y][x].owner;ctx.fillStyle=o===1?"#93e787":o===2?"#89d5ff":((x+y)%2?"#2f8d39":"#379d42");ctx.fillRect(x*game.tile,y*game.tile,game.tile-1,game.tile-1)}
+ ctx.strokeStyle="#8a5427";ctx.lineWidth=22;ctx.strokeRect(10,10,game.w*game.tile-20,game.h*game.tile-20);
+ for(const p of game.players){ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.a);ctx.fillStyle="rgba(0,0,0,.3)";ctx.beginPath();ctx.ellipse(0,22,38,18,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=p.color;roundRect(-34,-24,68,48,10);ctx.fill();ctx.fillStyle="#111";ctx.fillRect(-28,-30,16,12);ctx.fillRect(12,-30,16,12);ctx.fillRect(-28,18,16,12);ctx.fillRect(12,18,16,12);ctx.restore()}
+ ctx.restore();p1hud.innerHTML="<b>P1</b><br>Score "+Math.floor(game.players[0].score);p2hud.innerHTML="<b>P2</b><br>Score "+Math.floor(game.players[1].score);timerEl.textContent=Math.ceil(game.time)+"s";
+ if(!running){ctx.fillStyle="rgba(0,0,0,.65)";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle="#ffe45c";ctx.font="900 42px Arial";ctx.textAlign="center";ctx.fillText(game.players[0].score>=game.players[1].score?"P1 Wins!":"P2 Wins!",canvas.width/2,canvas.height/2);ctx.font="700 20px Arial";ctx.fillStyle="#fff";ctx.fillText("Refresh to return to the online menu.",canvas.width/2,canvas.height/2+42)}
+}
+let last=performance.now();function loop(now){let dt=Math.min(.033,(now-last)/1000);last=now;if(running)update(dt);draw();if(game)requestAnimationFrame(loop)}
+addEventListener("resize",resize);addEventListener("keydown",e=>{keys[e.code]=true;if(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code))e.preventDefault()});addEventListener("keyup",e=>keys[e.code]=false);
+</script>
+</body>
+</html>
